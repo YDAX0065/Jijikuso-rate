@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>JJC Reference Index</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+background:#0f1117;
+color:white;
+font-family:Arial;
+margin:0;
+}
+
+.header{
+background:#161b22;
+padding:20px;
+font-size:24px;
+font-weight:bold;
+}
+
+.container{
+width:900px;
+margin:auto;
+padding-top:30px;
+}
+
+.priceBox{
+background:#161b22;
+padding:20px;
+border-radius:8px;
+margin-bottom:20px;
+}
+
+.price{
+font-size:42px;
+font-weight:bold;
+}
+
+.stats{
+display:flex;
+gap:20px;
+margin-top:15px;
+}
+
+.stat{
+background:#21262d;
+padding:10px 20px;
+border-radius:6px;
+}
+
+.note{
+margin-top:15px;
+font-size:12px;
+color:#9aa4b2;
+line-height:1.6;
+}
+
+canvas{
+background:#161b22;
+border-radius:8px;
+padding:10px;
+margin-top:20px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+JJC Reference Index
+</div>
+
+<div class="container">
+
+<div class="priceBox">
+
+<div class="price">
+JJC Index: <span id="rate">Loading...</span>
+</div>
+
+<div class="stats">
+
+<div class="stat">
+24h High<br>
+<span id="high">-</span>
+</div>
+
+<div class="stat">
+24h Low<br>
+<span id="low">-</span>
+</div>
+
+<div class="stat">
+24h Change<br>
+<span id="change">-</span>
+</div>
+
+</div>
+
+<div class="note">
+This index is calculated automatically from international foreign exchange movements.<br>
+It is a synthetic reference index derived from USD, EUR and JPY exchange relationships.<br>
+JJC is not a tradable currency and cannot be exchanged for any real-world currency.
+</div>
+
+<canvas id="chart" height="120"></canvas>
+
+</div>
+
+</div>
+
+<script>
+
+const prices=[];
+
+const ctx=document.getElementById("chart");
+
+const chart=new Chart(ctx,{
+type:"line",
+data:{
+labels:[],
+datasets:[{
+label:"JJC Index",
+data:[],
+borderColor:"#3b82f6",
+tension:0.2
+}]
+},
+options:{
+animation:false,
+plugins:{legend:{display:false}},
+scales:{
+x:{display:false}
+}
+}
+});
+
+async function updateRate(){
+
+try{
+
+const res=await fetch("https://open.er-api.com/v6/latest/USD");
+
+const data=await res.json();
+
+const usd_jpy=data.rates.JPY;
+const usd_eur=data.rates.EUR;
+
+const eur_usd=1/usd_eur;
+const eur_jpy=eur_usd*usd_jpy;
+
+/* 基準値 */
+
+const USD0=158.26;
+const EUR0=183.99;
+const EURUSD0=1.1627;
+
+let jjc=
+
+100*
+Math.pow(usd_jpy/USD0,1/3)*
+Math.pow(eur_jpy/EUR0,1/3)*
+Math.pow(eur_usd/EURUSD0,1/3);
+
+jjc=Number(jjc.toFixed(2));
+
+document.getElementById("rate").innerText=jjc;
+
+prices.push(jjc);
+
+if(prices.length>1440){
+prices.shift();
+}
+
+let high=Math.max(...prices);
+let low=Math.min(...prices);
+
+document.getElementById("high").innerText=high.toFixed(2);
+document.getElementById("low").innerText=low.toFixed(2);
+
+let change=((jjc-prices[0])/prices[0])*100;
+
+document.getElementById("change").innerText=
+change.toFixed(2)+"%";
+
+/* グラフ */
+
+chart.data.labels.push("");
+
+chart.data.datasets[0].data.push(jjc);
+
+if(chart.data.labels.length>100){
+chart.data.labels.shift();
+chart.data.datasets[0].data.shift();
+}
+
+chart.update();
+
+}catch(e){
+
+document.getElementById("rate").innerText="ERROR";
+
+console.log(e);
+
+}
+
+}
+
+updateRate();
+
+setInterval(updateRate,60000);
+
+</script>
+
+</body>
+</html>
